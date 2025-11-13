@@ -1,0 +1,40 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>com.pk</groupId>
+  <artifactId>rule-execution-engine</artifactId>
+  <version>0.0.1-SNAPSHOT</version>
+  <name>Rule Execution Engine</name>
+  <description>A Reusable Rule Execution Engine Library</description>
+  
+  <!-- pom.xml -->
+	<dependencies>
+	    <!-- JSON Processing -->
+	    <dependency>
+	        <groupId>com.fasterxml.jackson.core</groupId>
+	        <artifactId>jackson-databind</artifactId>
+	        <version>2.15.2</version>
+	    </dependency>
+	    
+	    <!-- Logging -->
+	    <dependency>
+	        <groupId>org.slf4j</groupId>
+	        <artifactId>slf4j-api</artifactId>
+	        <version>2.0.7</version>
+	    </dependency>
+	    
+	    <!-- Apache Commons JEXL (for expressions) -->
+	    <dependency>
+	        <groupId>org.apache.commons</groupId>
+	        <artifactId>commons-jexl3</artifactId>
+	        <version>3.3</version>
+	    </dependency>
+	    
+	    <!-- Testing -->
+	    <dependency>
+	        <groupId>org.junit.jupiter</groupId>
+	        <artifactId>junit-jupiter</artifactId>
+	        <version>5.9.3</version>
+	        <scope>test</scope>
+	    </dependency>
+	</dependencies>
+</project>
