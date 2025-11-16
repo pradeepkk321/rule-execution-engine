@@ -1,0 +1,42 @@
+spring:
+  application:
+    name: rule-engine-demo
+  
+server:
+  port: 8080
+  
+rule-engine:
+  # Rule configuration file location
+  config-location: classpath:rules/order-processing.json
+  
+  # Validation on startup
+  validate-on-startup: true
+  
+  # Maximum execution depth
+  max-execution-depth: 50
+  
+  # Execution timeout in milliseconds
+  execution-timeout: 30000
+  
+  # Enable expression caching
+  cache-expressions: true
+  expression-cache-size: 512
+
+# Logging configuration
+logging:
+  level:
+    com.demo.ruleengine: DEBUG
+    com.ruleengine: DEBUG
+    org.springframework.web: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+
+# Actuator endpoints
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
