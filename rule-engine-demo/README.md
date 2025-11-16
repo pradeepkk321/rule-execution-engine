@@ -1,191 +1,190 @@
-# Rule Engine Spring Boot Starter
+# Rule Engine Demo Application
 
-Spring Boot auto-configuration for the Rule Execution Engine.
+Demo Spring Boot application showcasing the Rule Engine with API actions.
 
 ## Features
 
-- **Auto-configuration** for seamless Spring Boot integration
-- **Properties-based configuration** via `application.yml`
-- **Automatic bean registration** for `RuleExecutor` and `RuleEngineService`
-- **Component scanning** for custom action providers
-- **Built-in example actions** (API, Database)
+- **Order processing workflow** with rule-based logic
+- **API integration** - Fetches user data from external APIs
+- **Tax and discount calculations** using JEXL expressions
+- **Multi-step rule execution** with transitions
+- **REST API** for order submission
+- **Spring Boot Actuator** for monitoring
+
+## Prerequisites
+
+- Java 17+
+- Maven 3.6+
+- rule-execution-engine installed locally
+- rule-engine-spring-boot-starter installed locally
 
 ## Installation
 
-```xml
-<dependency>
-    <groupId>com.pk</groupId>
-    <artifactId>rule-engine-spring-boot-starter</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
-</dependency>
-```
-
-Build locally:
 ```bash
+# Clone and build dependencies first
+cd rule-execution-engine
+mvn clean install
+
+cd ../rule-engine-spring-boot-starter
+mvn clean install
+
+# Build demo
+cd ../rule-engine-demo
 mvn clean install
 ```
+
+## Running
+
+```bash
+mvn spring-boot:run
+```
+
+Application starts on `http://localhost:8080`
+
+## API Endpoints
+
+### Process Order
+
+**POST** `/api/orders`
+
+**Request:**
+```json
+{
+  "userId": "1",
+  "amount": 150.0,
+  "items": [
+    {
+      "productId": "PROD-1",
+      "price": 100.0,
+      "quantity": 1
+    },
+    {
+      "productId": "PROD-2",
+      "price": 50.0,
+      "quantity": 1
+    }
+  ],
+  "verified": true
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "orderId": "ORD-1-A3F5B2C9",
+  "total": 165.0,
+  "status": "APPROVED",
+  "message": "Thank you Leanne Graham! Your order ORD-1-A3F5B2C9 has been confirmed.",
+  "executionTimeMs": 245
+}
+```
+
+### Health Check
+
+**GET** `/api/orders/health`
+
+```json
+{
+  "status": "UP",
+  "service": "order-processing",
+  "timestamp": "2024-01-15T10:30:00Z"
+}
+```
+
+## Testing
+
+```bash
+# Run all tests
+mvn test
+
+# Run specific test
+mvn test -Dtest=RuleEngineIntegrationTest
+
+# Test with curl
+curl -X POST http://localhost:8080/api/orders \
+  -H "Content-Type: application/json" \
+  -d '{
+    "userId": "1",
+    "amount": 150.0,
+    "items": [
+      {"productId": "PROD-1", "price": 100.0, "quantity": 1}
+    ],
+    "verified": true
+  }'
+```
+
+## Rule Flow
+
+1. **validate-order** - Fetches user data from API, validates verification
+2. **calculate-totals** - Computes subtotal, tax, total, generates order ID
+3. **high-value-order** / **standard-order** - Routes based on total amount
+4. **verification-required** - Handles unverified users
 
 ## Configuration
 
 ### application.yml
 
 ```yaml
+server:
+  port: 8080
+
 rule-engine:
-  # Rule configuration file location
   config-location: classpath:rules/order-processing.json
-  
-  # Validation on startup
   validate-on-startup: true
-  
-  # Execution limits
   max-execution-depth: 50
   execution-timeout: 30000
-  
-  # Expression caching
-  cache-expressions: true
-  expression-cache-size: 512
+
+logging:
+  level:
+    com.demo.ruleengine: DEBUG
+    com.ruleengine: DEBUG
 ```
 
-### Properties
+### Rules Configuration
 
-| Property | Default | Description |
-|----------|---------|-------------|
-| `rule-engine.config-location` | `classpath:rules.json` | Path to rules JSON file |
-| `rule-engine.validate-on-startup` | `true` | Validate configuration on startup |
-| `rule-engine.max-execution-depth` | `50` | Maximum rule nesting depth |
-| `rule-engine.execution-timeout` | `30000` | Timeout in milliseconds |
-| `rule-engine.cache-expressions` | `true` | Enable expression caching |
-| `rule-engine.expression-cache-size` | `512` | Expression cache size |
+Located at `src/main/resources/rules/order-processing.json`
 
-## Usage
+Key features:
+- API action to fetch user data from JSONPlaceholder
+- JEXL expressions for calculations
+- Conditional transitions based on order value
+- Error handling for unverified users
 
-### Inject RuleEngineService
+## Project Structure
 
-```java
-@Service
-public class OrderService {
-    
-    private final RuleEngineService ruleEngineService;
-    
-    public OrderService(RuleEngineService ruleEngineService) {
-        this.ruleEngineService = ruleEngineService;
-    }
-    
-    public OrderResponse processOrder(OrderRequest request) {
-        ExecutionContext context = new ExecutionContext();
-        context.setVariable("userId", request.getUserId());
-        context.setVariable("amount", request.getAmount());
-        
-        ExecutionResult result = ruleEngineService.execute(context);
-        
-        if (result.isSuccess()) {
-            return OrderResponse.success(
-                context.getVariable("orderId", String.class)
-            );
-        }
-        return OrderResponse.failure(result.getErrorMessage());
-    }
-}
 ```
-
-### Multiple Execution Methods
-
-```java
-// With ExecutionContext
-ExecutionContext context = new ExecutionContext();
-context.setVariable("key", "value");
-ExecutionResult result = ruleEngineService.execute(context);
-
-// With Map
-Map vars = Map.of("key", "value");
-ExecutionResult result = ruleEngineService.execute(vars);
-
-// With single variable
-ExecutionResult result = ruleEngineService.execute("key", "value");
-
-// Execute and extract result
-String orderId = ruleEngineService.executeAndGet(
-    context, 
-    "orderId", 
-    String.class
-);
+src/
+├── main/
+│   ├── java/com/demo/ruleengine/
+│   │   ├── RuleEngineDemoApplication.java
+│   │   ├── action/
+│   │   │   └── ApiActionProvider.java
+│   │   ├── controller/
+│   │   │   └── OrderController.java
+│   │   ├── model/
+│   │   │   ├── OrderRequest.java
+│   │   │   └── OrderResponse.java
+│   │   └── service/
+│   │       └── OrderProcessingService.java
+│   └── resources/
+│       ├── application.yml
+│       └── rules/
+│           └── order-processing.json
+└── test/
+    └── java/com/demo/ruleengine/
+        └── RuleEngineIntegrationTest.java
 ```
 
 ## Custom Actions
 
-Create a Spring component implementing `ActionProvider`:
+### API Action
 
-```java
-@Component
-public class EmailActionProvider implements ActionProvider {
-    
-    @Autowired
-    private EmailService emailService;
-    
-    @Override
-    public boolean supports(String actionType) {
-        return "EMAIL".equalsIgnoreCase(actionType);
-    }
-    
-    @Override
-    public Action createAction(ActionDefinition definition) {
-        return new EmailAction(definition, emailService);
-    }
-    
-    @Override
-    public int getPriority() {
-        return 200; // Custom actions get high priority
-    }
-}
-```
-
-The starter automatically discovers and registers all `ActionProvider` beans.
-
-## Auto-Configuration Details
-
-The starter provides:
-
-1. **ConfigurationLoader** - Loads rules from configured location
-2. **ExpressionEvaluator** - JEXL expression evaluator with utilities
-3. **ActionRegistry** - Manages all action providers
-4. **RuleExecutor** - Core execution engine
-5. **RuleEngineService** - Spring-friendly service wrapper
-
-### Bean Registration Order
-
-1. Built-in actions (priority 0)
-2. Framework actions (priority 100)
-3. Custom actions (priority 200+)
-
-## Example Action: API Call
-
-```java
-@Component
-public class ApiActionProvider implements ActionProvider {
-    
-    private final RestTemplate restTemplate;
-    
-    public ApiActionProvider(RestTemplate restTemplate) {
-        this.restTemplate = restTemplate;
-    }
-    
-    @Override
-    public boolean supports(String actionType) {
-        return "API".equalsIgnoreCase(actionType);
-    }
-    
-    @Override
-    public Action createAction(ActionDefinition definition) {
-        return new ApiAction(definition, restTemplate);
-    }
-}
-```
-
-### Configuration
+Makes HTTP calls with variable interpolation:
 
 ```json
 {
-  "actionId": "fetch-user",
+  "actionId": "fetch-user-data",
   "type": "API",
   "config": {
     "url": "https://api.example.com/users/${userId}",
@@ -194,52 +193,162 @@ public class ApiActionProvider implements ActionProvider {
       "Authorization": "Bearer ${token}"
     }
   },
-  "outputVariable": "userData"
+  "outputVariable": "userData",
+  "outputExpression": "result.data"
 }
 ```
 
-## Spring Boot Application
+Supports:
+- GET, POST, PUT, DELETE, PATCH methods
+- Variable substitution in URLs and headers
+- Request body from context variables
+- Response extraction with outputExpression
 
+## Monitoring
+
+Spring Boot Actuator endpoints:
+
+- `/actuator/health` - Application health
+- `/actuator/info` - Application info
+- `/actuator/metrics` - Metrics
+
+## Example Scenarios
+
+### Standard Order (amount ≤ $1000)
+
+```bash
+curl -X POST http://localhost:8080/api/orders \
+  -H "Content-Type: application/json" \
+  -d '{
+    "userId": "1",
+    "amount": 150.0,
+    "items": [{"productId": "PROD-1", "price": 150.0, "quantity": 1}],
+    "verified": true
+  }'
+```
+
+Result: `status: "APPROVED"`
+
+### High-Value Order (amount > $1000)
+
+```bash
+curl -X POST http://localhost:8080/api/orders \
+  -H "Content-Type: application/json" \
+  -d '{
+    "userId": "1",
+    "amount": 1500.0,
+    "items": [{"productId": "PROD-1", "price": 1500.0, "quantity": 1}],
+    "verified": true
+  }'
+```
+
+Result: `status: "APPROVED_HIGH_VALUE"` with priority processing message
+
+### Unverified User
+
+```bash
+curl -X POST http://localhost:8080/api/orders \
+  -H "Content-Type: application/json" \
+  -d '{
+    "userId": "1",
+    "amount": 100.0,
+    "items": [{"productId": "PROD-1", "price": 100.0, "quantity": 1}],
+    "verified": false
+  }'
+```
+
+Result: `status: "VERIFICATION_REQUIRED"`
+
+## Extending
+
+### Add New Action Type
+
+1. Create action provider:
 ```java
-@SpringBootApplication
-public class Application {
-    
-    public static void main(String[] args) {
-        SpringApplication.run(Application.class, args);
+@Component
+public class DatabaseActionProvider implements ActionProvider {
+    @Override
+    public boolean supports(String actionType) {
+        return "DATABASE".equalsIgnoreCase(actionType);
     }
-    
-    @Bean
-    public RestTemplate restTemplate() {
-        return new RestTemplate();
-    }
+    // ... implement createAction()
+}
+```
+
+2. Configure in rules JSON:
+```json
+{
+  "actionId": "save-order",
+  "type": "DATABASE",
+  "config": {
+    "query": "INSERT INTO orders...",
+    "params": ["${orderId}", "${total}"]
+  }
+}
+```
+
+### Add New Endpoint
+
+Add to `OrderController.java`:
+```java
+@GetMapping("/orders/{id}")
+public OrderResponse getOrder(@PathVariable String id) {
+    // Implementation
 }
 ```
 
 ## Troubleshooting
 
-### RuleEngineService bean not found
-
-Ensure `META-INF/spring.factories` exists:
-```properties
-org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
-com.ruleengine.spring.boot.RuleEngineAutoConfiguration
+**Port already in use:**
+```yaml
+server:
+  port: 8081  # Change port in application.yml
 ```
 
-Or add component scan:
-```java
-@ComponentScan(basePackages = {"com.demo", "com.ruleengine.spring.boot"})
-```
+**Rules not loading:**
+- Check `config-location` path
+- Verify JSON syntax
+- Check logs for validation errors
 
-### Configuration file not found
-
-Check `config-location` in `application.yml` and ensure file exists in resources.
+**API action fails:**
+- Ensure external API is accessible
+- Check network/firewall settings
+- Verify URL and credentials
 
 ## Dependencies
 
 - Spring Boot 3.5.7
-- rule-execution-engine 0.0.1-SNAPSHOT
-- Spring Web (for RestTemplate)
+- rule-engine-spring-boot-starter 0.0.1-SNAPSHOT
+- Spring Boot Web, Validation, Actuator
 
 ## License
 
 [Your License]
+
+
+## Quick Setup Guide
+
+### Build Order
+
+```bash
+# 1. Core engine
+cd rule-execution-engine
+mvn clean install
+
+# 2. Spring Boot starter
+cd ../rule-engine-spring-boot-starter
+mvn clean install
+
+# 3. Demo application
+cd ../rule-engine-demo
+mvn clean install
+mvn spring-boot:run
+```
+
+### Test
+
+```bash
+curl -X POST http://localhost:8080/api/orders \
+  -H "Content-Type: application/json" \
+  -d '{"userId":"1","amount":150,"items":[{"productId":"PROD-1","price":150,"quantity":1}],"verified":true}'
+```
