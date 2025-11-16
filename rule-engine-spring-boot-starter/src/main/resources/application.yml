@@ -1,0 +1,18 @@
+rule-engine:
+  # Location of rules configuration file
+  config-location: classpath:rules/order-processing.json
+  
+  # Validation on startup (default: true)
+  validate-on-startup: true
+  
+  # Maximum execution depth (default: 50)
+  max-execution-depth: 50
+  
+  # Execution timeout in ms (default: 30000)
+  execution-timeout: 30000
+  
+  # Enable expression caching (default: true)
+  cache-expressions: true
+  
+  # Expression cache size (default: 512)
+  expression-cache-size: 512

@@ -85,10 +85,21 @@ public class JexlExpressionEvaluator implements ExpressionEvaluator {
         }
         
         try {
-            JexlExpression jexlExpr = getOrCompileExpression(expression);
-            JexlContext jexlContext = createJexlContext(context);
+            // Check if this is a script (contains semicolons, multiple statements, loops)
+            boolean isScript = expression.contains(";") || expression.contains("for (");
             
-            Object result = jexlExpr.evaluate(jexlContext);
+            JexlContext jexlContext = createJexlContext(context);
+            Object result;
+            
+            if (isScript) {
+                // Use JexlScript for multi-statement expressions
+                JexlScript script = jexlEngine.createScript(expression);
+                result = script.execute(jexlContext);
+            } else {
+                // Use JexlExpression for simple expressions
+                JexlExpression jexlExpr = getOrCompileExpression(expression);
+                result = jexlExpr.evaluate(jexlContext);
+            }
             
             logger.debug("Evaluated expression '{}' = {}", expression, result);
             

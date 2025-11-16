@@ -286,14 +286,6 @@ public class JexlUtilityFunctions {
         return Math.abs(value);
     }
     
-    public double roundTo(double value, int decimalPlaces) {
-        if (decimalPlaces < 0) {
-            throw new IllegalArgumentException("Decimal places must be non-negative");
-        }
-        double scale = Math.pow(10, decimalPlaces);
-        return Math.round(value * scale) / scale;
-    }
-    
     /**
      * Round to nearest integer.
      * Usage: util:round(number)

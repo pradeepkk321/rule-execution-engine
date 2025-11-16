@@ -158,6 +158,14 @@ public class ComplexRuleExample {
         }
         
         System.out.println("\nExecution Steps: " + context.getExecutionHistory().size());
+        
+        // Show error if failed
+        if (result.isFailure()) {
+            System.out.println("Error: " + result.getErrorMessage());
+            if (context.hasError()) {
+                System.out.println("Error Details: " + context.getError());
+            }
+        }
     }
     
     private static String createComplexConfiguration() {
@@ -246,15 +254,7 @@ public class ComplexRuleExample {
                   "actionId": "sum-cart-items",
                   "type": "SCRIPT",
                   "config": {
-                    "expression": "cartItems.stream().mapToDouble(item -> item.price * item.quantity).sum()"
-                  },
-                  "outputVariable": "rawSubtotal"
-                },
-                {
-                  "actionId": "round-subtotal",
-                  "type": "SCRIPT",
-                  "config": {
-                    "expression": "util.roundTo(rawSubtotal, 2)"
+                    "expression": "util.sumItems(cartItems)"
                   },
                   "outputVariable": "subtotal"
                 },
@@ -262,7 +262,7 @@ public class ComplexRuleExample {
                   "actionId": "count-items",
                   "type": "SCRIPT",
                   "config": {
-                    "expression": "cartItems.stream().mapToInt(item -> item.quantity).sum()"
+                    "expression": "count = 0; for (item : cartItems) { count = count + item.quantity; } return count;"
                   },
                   "outputVariable": "itemCount"
                 }
@@ -309,7 +309,15 @@ public class ComplexRuleExample {
                   "actionId": "calculate-discount",
                   "type": "SCRIPT",
                   "config": {
-                    "expression": "util.roundTo(orderSubtotal * 0.20, 2)"
+                    "expression": "orderSubtotal * 0.20"
+                  },
+                  "outputVariable": "discountAmount"
+                },
+                {
+                  "actionId": "round-discount",
+                  "type": "SCRIPT",
+                  "config": {
+                    "expression": "util.roundTo(discountAmount, 2)"
                   },
                   "outputVariable": "discountAmount"
                 },
@@ -338,7 +346,15 @@ public class ComplexRuleExample {
                   "actionId": "calculate-discount",
                   "type": "SCRIPT",
                   "config": {
-                    "expression": "util.roundTo(orderSubtotal * 0.10, 2)"
+                    "expression": "orderSubtotal * 0.10"
+                  },
+                  "outputVariable": "discountAmount"
+                },
+                {
+                  "actionId": "round-discount",
+                  "type": "SCRIPT",
+                  "config": {
+                    "expression": "util.roundTo(discountAmount, 2)"
                   },
                   "outputVariable": "discountAmount"
                 },
@@ -367,7 +383,15 @@ public class ComplexRuleExample {
                   "actionId": "apply-discount",
                   "type": "SCRIPT",
                   "config": {
-                    "expression": "util.roundTo(orderSubtotal - (discountAmount != null ? discountAmount : 0), 2)"
+                    "expression": "orderSubtotal - (discountAmount != null ? discountAmount : 0)"
+                  },
+                  "outputVariable": "discountedTotal"
+                },
+                {
+                  "actionId": "round-discounted-total",
+                  "type": "SCRIPT",
+                  "config": {
+                    "expression": "util.roundTo(discountedTotal, 2)"
                   },
                   "outputVariable": "discountedTotal"
                 },
@@ -375,7 +399,15 @@ public class ComplexRuleExample {
                   "actionId": "calculate-tax",
                   "type": "SCRIPT",
                   "config": {
-                    "expression": "util.roundTo(discountedTotal * 0.08, 2)"
+                    "expression": "discountedTotal * 0.08"
+                  },
+                  "outputVariable": "tax"
+                },
+                {
+                  "actionId": "round-tax",
+                  "type": "SCRIPT",
+                  "config": {
+                    "expression": "util.roundTo(tax, 2)"
                   },
                   "outputVariable": "tax"
                 },
@@ -383,7 +415,15 @@ public class ComplexRuleExample {
                   "actionId": "calculate-total",
                   "type": "SCRIPT",
                   "config": {
-                    "expression": "util.roundTo(discountedTotal + tax, 2)"
+                    "expression": "discountedTotal + tax"
+                  },
+                  "outputVariable": "total"
+                },
+                {
+                  "actionId": "round-total",
+                  "type": "SCRIPT",
+                  "config": {
+                    "expression": "util.roundTo(total, 2)"
                   },
                   "outputVariable": "total"
                 },
