@@ -162,3 +162,4 @@ public class CompositeValidator implements ConfigValidator {
         return composite;
     }
 }
+

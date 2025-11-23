@@ -206,3 +206,4 @@ public class CycleDetector implements ConfigValidator {
                 .collect(Collectors.joining("; "));
     }
 }
+

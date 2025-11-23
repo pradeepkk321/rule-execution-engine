@@ -1,3 +1,7 @@
+spring:
+  application:
+    name: rule-engine-spring-boot-starter
+
 rule-engine:
   # Location of rules configuration file
   config-location: classpath:rules/order-processing.json

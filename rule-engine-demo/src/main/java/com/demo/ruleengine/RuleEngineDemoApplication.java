@@ -7,7 +7,7 @@ import org.springframework.context.annotation.ComponentScan;
 import org.springframework.web.client.RestTemplate;
 
 @SpringBootApplication
-@ComponentScan(basePackages = {"com.demo.ruleengine", "com.ruleengine.spring.boot"})
+//@ComponentScan(basePackages = {"com.demo.ruleengine", "com.ruleengine.spring.boot"})
 public class RuleEngineDemoApplication {
     
     public static void main(String[] args) {

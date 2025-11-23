@@ -39,3 +39,4 @@ public class ConfigurationLoadException extends Exception {
         return super.toString();
     }
 }
+

@@ -39,3 +39,4 @@ public class RuleExecutionException extends Exception {
         return super.toString();
     }
 }
+

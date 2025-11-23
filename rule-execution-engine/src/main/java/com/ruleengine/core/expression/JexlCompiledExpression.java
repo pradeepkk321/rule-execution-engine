@@ -87,3 +87,4 @@ class JexlCompiledExpression implements CompiledExpression {
         return "JexlCompiledExpression{expression='" + expressionString + "'}";
     }
 }
+
