@@ -481,13 +481,13 @@ cd ../rule-engine-demo && mvn clean install
 
 ## License
 
-[Your License]
+[[Apache-2.0 license]](http://www.apache.org/licenses/LICENSE-2.0)
 
 ## Support
 
 - Documentation: See individual module READMEs
 - Issues: [GitHub Issues](your-repo-url)
-- Email: your-email@example.com
+- Email: pradyskumar@gmail.com
 
 ## Dependencies
 
