@@ -1,22 +1,37 @@
 package com.ruleengine.core.executor;
 
-import com.ruleengine.core.action.*;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.ruleengine.core.action.Action;
+import com.ruleengine.core.action.ActionCreationException;
+import com.ruleengine.core.action.ActionException;
+import com.ruleengine.core.action.ActionRegistry;
+import com.ruleengine.core.action.ActionResult;
 import com.ruleengine.core.context.ErrorInfo;
 import com.ruleengine.core.context.ExecutionContext;
 import com.ruleengine.core.context.ExecutionStep;
 import com.ruleengine.core.expression.ExpressionEvaluationException;
 import com.ruleengine.core.expression.ExpressionEvaluator;
-import com.ruleengine.core.model.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.time.Instant;
-import java.util.List;
-import java.util.Map;
+import com.ruleengine.core.model.ActionDefinition;
+import com.ruleengine.core.model.RuleDefinition;
+import com.ruleengine.core.model.RuleEngineConfig;
+import com.ruleengine.core.model.TransitionDefinition;
 
 /**
  * Core rule execution engine.
  * Orchestrates rule execution, action execution, and transition navigation.
+ *
+ * Enhanced rule execution engine with complete error handling and timeout support.
  */
 public class RuleExecutor {
     
@@ -28,10 +43,9 @@ public class RuleExecutor {
     private final ExpressionEvaluator expressionEvaluator;
     private final int maxDepth;
     private final String defaultErrorRule;
+    private final long timeoutMs;
+    private final ExecutorService executorService;
     
-    /**
-     * Create a rule executor.
-     */
     public RuleExecutor(
             RuleEngineConfig config,
             ActionRegistry actionRegistry,
@@ -43,13 +57,15 @@ public class RuleExecutor {
         this.expressionEvaluator = expressionEvaluator;
         this.maxDepth = config.getGlobalSettings().getMaxExecutionDepth();
         this.defaultErrorRule = config.getGlobalSettings().getDefaultErrorRule();
+        this.timeoutMs = config.getGlobalSettings().getTimeout();
+        this.executorService = Executors.newCachedThreadPool();
         
-        logger.info("RuleExecutor initialized with {} rules, maxDepth={}", 
-                   ruleMap.size(), maxDepth);
+        logger.info("RuleExecutor initialized with {} rules, maxDepth={}, timeout={}ms", 
+                   ruleMap.size(), maxDepth, timeoutMs);
     }
     
     /**
-     * Execute rules starting from the entry point.
+     * Execute rules with timeout enforcement.
      */
     public ExecutionResult execute(ExecutionContext context) throws RuleExecutionException {
         long startTime = System.currentTimeMillis();
@@ -61,47 +77,91 @@ public class RuleExecutor {
         
         logger.info("Starting rule execution from entry point: {}", entryPoint);
         
+        // Initialize trace with actual entry point
+        if (context.isTracingEnabled()) {
+            context.initializeTrace(entryPoint);
+            context.getTrace().snapshotVariables("initial-state", context);
+        }
+        
+        // Execute with timeout
+        Future<ExecutionResult> future = executorService.submit(() -> {
+            try {
+                String finalRuleId = executeFromRule(entryPoint, context);
+                long executionTime = System.currentTimeMillis() - startTime;
+                
+                logger.info("Rule execution completed successfully. Final rule: {}, Time: {}ms", 
+                           finalRuleId, executionTime);
+                
+                return ExecutionResult.builder()
+                        .success(true)
+                        .context(context)
+                        .finalRuleId(finalRuleId)
+                        .executionTimeMs(executionTime)
+                        .build();
+                        
+            } catch (Exception e) {
+                long executionTime = System.currentTimeMillis() - startTime;
+                logger.error("Rule execution failed after {}ms: {}", executionTime, e.getMessage(), e);
+                
+                return ExecutionResult.builder()
+                        .success(false)
+                        .context(context)
+                        .finalRuleId(context.getCurrentRuleId())
+                        .errorMessage(e.getMessage())
+                        .executionTimeMs(executionTime)
+                        .build();
+            }
+        });
+        
         try {
-            // Execute from entry point
-            String finalRuleId = executeFromRule(entryPoint, context);
-            
+        	ExecutionResult executionResult = future.get(timeoutMs, TimeUnit.MILLISECONDS);
+        	
+            if (context.isTracingEnabled()) {
+                context.getTrace().snapshotVariables("final-state", context);
+            }
+
+            return executionResult;
+        } catch (TimeoutException e) {
+            future.cancel(true);
             long executionTime = System.currentTimeMillis() - startTime;
             
-            logger.info("Rule execution completed successfully. Final rule: {}, Time: {}ms", 
-                       finalRuleId, executionTime);
+            logger.error("Rule execution timed out after {}ms", executionTime);
             
-            return ExecutionResult.builder()
-                    .success(true)
-                    .context(context)
-                    .finalRuleId(finalRuleId)
-                    .executionTimeMs(executionTime)
-                    .build();
-            
-        } catch (Exception e) {
-            long executionTime = System.currentTimeMillis() - startTime;
-            
-            logger.error("Rule execution failed after {}ms: {}", executionTime, e.getMessage(), e);
+            if (context.isTracingEnabled()) {
+                context.getTrace().snapshotVariables("final-state", context);
+            }
             
             return ExecutionResult.builder()
                     .success(false)
                     .context(context)
                     .finalRuleId(context.getCurrentRuleId())
-                    .errorMessage(e.getMessage())
+                    .errorMessage("Execution timed out after " + timeoutMs + "ms")
+                    .executionTimeMs(executionTime)
+                    .build();
+                    
+        } catch (InterruptedException | ExecutionException e) {
+            long executionTime = System.currentTimeMillis() - startTime;
+            
+            if (context.isTracingEnabled()) {
+                context.getTrace().snapshotVariables("final-state", context);
+            }
+            
+            return ExecutionResult.builder()
+                    .success(false)
+                    .context(context)
+                    .finalRuleId(context.getCurrentRuleId())
+                    .errorMessage("Execution failed: " + e.getMessage())
                     .executionTimeMs(executionTime)
                     .build();
         }
     }
     
-    /**
-     * Execute rules starting from a specific rule.
-     */
     private String executeFromRule(String ruleId, ExecutionContext context) 
             throws RuleExecutionException {
         
         String currentRuleId = ruleId;
         
         while (currentRuleId != null) {
-            // Check depth limit
             if (context.getDepth() >= maxDepth) {
                 throw new RuleExecutionException(
                     currentRuleId,
@@ -109,7 +169,6 @@ public class RuleExecutor {
                 );
             }
             
-            // Get rule definition
             RuleDefinition rule = ruleMap.get(currentRuleId);
             if (rule == null) {
                 throw new RuleExecutionException(
@@ -118,37 +177,31 @@ public class RuleExecutor {
                 );
             }
             
-            // Execute the rule
             try {
                 logger.debug("Executing rule: {}", currentRuleId);
                 
                 context.setCurrentRuleId(currentRuleId);
                 context.incrementDepth();
                 
-                // Record rule entry
                 context.addExecutionStep(
                     ExecutionStep.builder(ExecutionStep.StepType.RULE_ENTERED)
                         .ruleId(currentRuleId)
                         .build()
                 );
                 
-                // Execute all actions in the rule
                 executeActions(rule, context);
                 
-                // Record rule exit
                 context.addExecutionStep(
                     ExecutionStep.builder(ExecutionStep.StepType.RULE_EXITED)
                         .ruleId(currentRuleId)
                         .build()
                 );
                 
-                // Check if terminal rule
                 if (rule.isTerminal()) {
                     logger.debug("Reached terminal rule: {}", currentRuleId);
                     return currentRuleId;
                 }
                 
-                // Evaluate transitions to get next rule
                 String nextRuleId = evaluateTransitions(rule, context);
                 
                 if (nextRuleId == null) {
@@ -159,7 +212,6 @@ public class RuleExecutor {
                 currentRuleId = nextRuleId;
                 
             } catch (ActionException e) {
-                // Handle action error
                 String errorRuleId = handleActionError(rule, e, context);
                 if (errorRuleId != null) {
                     currentRuleId = errorRuleId;
@@ -174,11 +226,8 @@ public class RuleExecutor {
         return context.getCurrentRuleId();
     }
     
-    /**
-     * Execute all actions in a rule sequentially.
-     */
     private void executeActions(RuleDefinition rule, ExecutionContext context) 
-            throws ActionException, ActionCreationException {
+            throws ActionException, ActionCreationException, ExpressionEvaluationException {
         
         List<ActionDefinition> actions = rule.getActions();
         if (actions == null || actions.isEmpty()) {
@@ -189,22 +238,34 @@ public class RuleExecutor {
         logger.debug("Executing {} actions for rule: {}", actions.size(), rule.getRuleId());
         
         for (ActionDefinition actionDef : actions) {
+            // Check conditional execution
+            if (actionDef.hasCondition() && !evaluateActionCondition(actionDef, context)) {
+                logger.debug("Skipping action {} - condition not met", actionDef.getActionId());
+                continue;
+            }
+            
             executeAction(actionDef, context);
         }
     }
     
-    /**
-     * Execute a single action.
-     */
+    private boolean evaluateActionCondition(ActionDefinition actionDef, ExecutionContext context) {
+        try {
+            return expressionEvaluator.evaluateBoolean(actionDef.getCondition(), context);
+        } catch (ExpressionEvaluationException e) {
+            logger.warn("Failed to evaluate action condition, defaulting to true: {}", 
+                       e.getMessage());
+            return true;
+        }
+    }
+    
     private void executeAction(ActionDefinition actionDef, ExecutionContext context) 
-            throws ActionException, ActionCreationException {
+            throws ActionException, ActionCreationException, ExpressionEvaluationException {
         
         String actionId = actionDef.getActionId();
         long startTime = System.currentTimeMillis();
         
         logger.debug("Executing action: {} (type: {})", actionId, actionDef.getType());
         
-        // Record action start
         context.addExecutionStep(
             ExecutionStep.builder(ExecutionStep.StepType.ACTION_STARTED)
                 .ruleId(context.getCurrentRuleId())
@@ -213,15 +274,11 @@ public class RuleExecutor {
         );
         
         try {
-            // Create action
             Action action = actionRegistry.createAction(actionDef);
-            
-            // Execute action
             ActionResult result = action.execute(context);
             
             long duration = System.currentTimeMillis() - startTime;
             
-            // Record action completion
             context.addExecutionStep(
                 ExecutionStep.builder(ExecutionStep.StepType.ACTION_COMPLETED)
                     .ruleId(context.getCurrentRuleId())
@@ -231,17 +288,25 @@ public class RuleExecutor {
                     .build()
             );
             
-            // Store result in context if outputVariable is specified
             if (result.isSuccess() && actionDef.getOutputVariable() != null) {
                 Object dataToStore = result.getData();
                 
-                // If outputExpression is specified, evaluate it to extract partial data
                 if (actionDef.hasOutputExpression()) {
-                    dataToStore = extractOutputData(actionDef, result.getData(), context);
+                    // Use unique temp variable to avoid pollution
+                    String tempVar = "__temp_result_" + System.nanoTime();
+                    context.setVariable(tempVar, dataToStore);
+                    
+                    try {
+                        dataToStore = expressionEvaluator.evaluate(
+                            actionDef.getOutputExpression().replace("result", tempVar), 
+                            context
+                        );
+                    } finally {
+                        context.removeVariable(tempVar);
+                    }
                 }
                 
                 context.setVariable(actionDef.getOutputVariable(), dataToStore);
-                
                 logger.debug("Stored action result in variable: {}", actionDef.getOutputVariable());
             }
             
@@ -250,7 +315,6 @@ public class RuleExecutor {
         } catch (ActionException e) {
             long duration = System.currentTimeMillis() - startTime;
             
-            // Record action failure
             context.addExecutionStep(
                 ExecutionStep.builder(ExecutionStep.StepType.ACTION_FAILED)
                     .ruleId(context.getCurrentRuleId())
@@ -262,7 +326,6 @@ public class RuleExecutor {
             
             logger.error("Action {} failed after {}ms: {}", actionId, duration, e.getMessage());
             
-            // Check if we should continue on error
             if (actionDef.shouldContinueOnError()) {
                 logger.debug("Continuing execution despite action error (continueOnError=true)");
                 return;
@@ -272,52 +335,6 @@ public class RuleExecutor {
         }
     }
     
-    /**
-     * Extract output data using outputExpression.
-     * The expression can reference:
-     * 1. "result" - the action's result
-     * 2. Any other context variables
-     */
-    private Object extractOutputData(ActionDefinition actionDef, Object fullData, 
-                                     ExecutionContext context) throws ActionException {
-        
-        String expression = actionDef.getOutputExpression();
-        
-        try {
-            // Store action result as "result" for the expression
-            context.setVariable("result", fullData);
-            
-            // Evaluate expression to extract partial data
-            Object extracted = expressionEvaluator.evaluate(expression, context);
-            
-            logger.debug("Extracted output data using expression: {} -> {}", expression, extracted);
-            
-            return extracted;
-            
-        } catch (ExpressionEvaluationException e) {
-            logger.error("Failed to evaluate output expression: {}", expression, e);
-            
-            // Fallback to full data if expression fails
-            if (actionDef.shouldContinueOnError()) {
-                logger.warn("Returning full action result due to output expression failure");
-                return fullData;
-            }
-            
-            throw new ActionException(
-                actionDef.getActionId(),
-                "Failed to evaluate output expression: " + e.getMessage(),
-                e
-            );
-            
-        } finally {
-            // Clean up the result variable
-            context.removeVariable("result");
-        }
-    }
-    
-    /**
-     * Evaluate transitions to determine the next rule.
-     */
     private String evaluateTransitions(RuleDefinition rule, ExecutionContext context) 
             throws RuleExecutionException {
         
@@ -333,12 +350,10 @@ public class RuleExecutor {
         for (TransitionDefinition transition : transitions) {
             try {
                 String condition = transition.getCondition();
-                
                 logger.debug("Evaluating transition condition: {}", condition);
                 
                 boolean conditionMet = expressionEvaluator.evaluateBoolean(condition, context);
                 
-                // Record transition evaluation
                 context.addExecutionStep(
                     ExecutionStep.builder(ExecutionStep.StepType.TRANSITION_EVALUATED)
                         .ruleId(rule.getRuleId())
@@ -346,13 +361,11 @@ public class RuleExecutor {
                         .metadata("result", conditionMet)
                         .metadata("targetRule", transition.getTargetRule())
                         .build()
-                );
-                
+                );                
                 if (conditionMet) {
                     logger.debug("Transition condition matched, moving to rule: {}", 
                                transition.getTargetRule());
                     
-                    // Apply context transformation if specified
                     if (transition.hasContextTransform()) {
                         applyContextTransformation(transition, context);
                     }
@@ -375,14 +388,10 @@ public class RuleExecutor {
         return null;
     }
     
-    /**
-     * Apply context transformation during transition.
-     */
     private void applyContextTransformation(TransitionDefinition transition, 
                                            ExecutionContext context) {
         
         Map<String, String> transform = transition.getContextTransform();
-        
         logger.debug("Applying context transformation: {}", transform);
         
         for (Map.Entry<String, String> entry : transform.entrySet()) {
@@ -397,12 +406,11 @@ public class RuleExecutor {
     }
     
     /**
-     * Handle action error by routing to error handler if configured.
+     * Enhanced error handler - finds and routes to action-level error handlers.
      */
     private String handleActionError(RuleDefinition rule, ActionException error, 
                                      ExecutionContext context) {
         
-        // Set error info in context
         ErrorInfo errorInfo = ErrorInfo.builder()
                 .ruleId(rule.getRuleId())
                 .actionId(error.getActionId())
@@ -413,7 +421,6 @@ public class RuleExecutor {
         
         context.setError(errorInfo);
         
-        // Record error
         context.addExecutionStep(
             ExecutionStep.builder(ExecutionStep.StepType.ERROR_OCCURRED)
                 .ruleId(rule.getRuleId())
@@ -422,10 +429,17 @@ public class RuleExecutor {
                 .build()
         );
         
-        // Check for action-level error handler
-        // (Would need to find the specific action definition - skipping for now)
+        // Find the specific action definition
+        ActionDefinition failedAction = findActionDefinition(rule, error.getActionId());
         
-        // Fall back to default error rule if configured
+        // Check for action-level error handler
+        if (failedAction != null && failedAction.hasErrorHandler()) {
+            String errorRuleId = failedAction.getOnError().getTargetRule();
+            logger.info("Routing to action-level error handler: {}", errorRuleId);
+            return errorRuleId;
+        }
+        
+        // Fall back to default error rule
         if (defaultErrorRule != null) {
             logger.info("Routing to default error rule: {}", defaultErrorRule);
             return defaultErrorRule;
@@ -436,10 +450,35 @@ public class RuleExecutor {
     }
     
     /**
-     * Get the rule engine configuration.
+     * Find action definition by ID within a rule.
      */
+    private ActionDefinition findActionDefinition(RuleDefinition rule, String actionId) {
+        if (rule.getActions() == null || actionId == null) {
+            return null;
+        }
+        
+        return rule.getActions().stream()
+                .filter(action -> actionId.equals(action.getActionId()))
+                .findFirst()
+                .orElse(null);
+    }
+    
     public RuleEngineConfig getConfig() {
         return config;
     }
+    
+    /**
+     * Shutdown executor service gracefully.
+     */
+    public void shutdown() {
+        executorService.shutdown();
+        try {
+            if (!executorService.awaitTermination(5, TimeUnit.SECONDS)) {
+                executorService.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            executorService.shutdownNow();
+            Thread.currentThread().interrupt();
+        }
+    }
 }
-

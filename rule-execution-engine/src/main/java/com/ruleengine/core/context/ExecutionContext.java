@@ -1,6 +1,14 @@
 package com.ruleengine.core.context;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+
+import com.ruleengine.core.executor.ExecutionTrace;
 
 /**
  * Mutable execution context that holds the state during rule execution.
@@ -27,6 +35,26 @@ public class ExecutionContext {
     
     // Current rule being executed
     private String currentRuleId;
+    
+    private ExecutionTrace trace;
+
+    public void enableTracing() {
+        this.trace = new ExecutionTrace();  // No entry point needed yet
+    }
+
+    public void initializeTrace(String entryPoint) {
+        if (trace != null) {
+            trace.setEntryPoint(entryPoint);
+        }
+    }
+
+    public ExecutionTrace getTrace() {
+        return trace;
+    }
+
+    public boolean isTracingEnabled() {
+        return trace != null;
+    }
     
     // ====================
     // Variable Management
@@ -156,6 +184,8 @@ public class ExecutionContext {
      */
     public void addExecutionStep(ExecutionStep step) {
         executionHistory.add(step);
+        if(trace != null)
+        	trace.recordStep(step);
     }
     
     /**
