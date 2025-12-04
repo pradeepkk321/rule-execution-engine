@@ -156,9 +156,13 @@ public class CompositeValidator implements ConfigValidator {
         
         // Add validators in order of importance
         composite.addValidator(new ReferenceValidator());
+        composite.addValidator(new DuplicateActionValidator());
+        composite.addValidator(new CircularDependencyValidator());
+        composite.addValidator(new ConditionalActionValidator());
         composite.addValidator(new ReachabilityValidator());
         composite.addValidator(new CycleDetector());
         
         return composite;
     }
 }
+

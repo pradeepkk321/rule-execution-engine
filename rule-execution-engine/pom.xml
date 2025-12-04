@@ -5,6 +5,11 @@
   <version>0.0.1-SNAPSHOT</version>
   <name>Rule Execution Engine</name>
   <description>A Reusable Rule Execution Engine Library</description>
+  	<properties>
+		<java.version>17</java.version>
+		<maven.compiler.source>17</maven.compiler.source>
+        <maven.compiler.target>17</maven.compiler.target>
+	</properties>
   
   <!-- pom.xml -->
 	<dependencies>
@@ -36,5 +41,48 @@
 	        <version>5.9.3</version>
 	        <scope>test</scope>
 	    </dependency>
+	    
+	    <dependency>
+		    <groupId>org.assertj</groupId>
+		    <artifactId>assertj-core</artifactId>
+		    <version>3.24.2</version>
+		    <scope>test</scope>
+		</dependency>
 	</dependencies>
+	<!--
+	<build>
+		<plugins>
+			<plugin>
+			    <groupId>com.mycila</groupId>
+			    <artifactId>license-maven-plugin</artifactId>
+			    <version>4.2</version>
+			
+			    <configuration>
+			        <header>${project.basedir}/license-header.txt</header>
+			        <includes>
+			            <include>**/*.java</include>
+			        </includes>
+			
+			        <properties>
+			            <year>2025</year>
+			            <owner>Pradeep Kumara Krishnegowda</owner>
+			        </properties>
+			
+			        <mapping>
+			            <java>SLASHSTAR_STYLE</java>
+			        </mapping>
+			    </configuration>
+
+			    <executions>
+			        <execution>
+			            <phase>validate</phase>
+			            <goals>
+			                <goal>format</goal>
+			            </goals>
+			        </execution>
+			    </executions>  
+			</plugin> 
+		</plugins>
+	</build> 
+	-->
 </project>

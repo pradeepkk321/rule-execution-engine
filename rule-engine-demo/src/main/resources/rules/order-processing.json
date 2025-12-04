@@ -1,0 +1,169 @@
+{
+  "version": "1.0",
+  "entryPoint": "validate-order",
+  "globalSettings": {
+    "maxExecutionDepth": 50,
+    "timeout": 30000
+  },
+  "rules": [
+    {
+      "ruleId": "validate-order",
+      "description": "Validate order and fetch user data",
+      "actions": [
+        {
+          "actionId": "fetch-user-data",
+          "type": "API",
+          "config": {
+            "url": "https://jsonplaceholder.typicode.com/users/${userId}",
+            "method": "GET",
+            "headers": {
+              "Accept": "application/json"
+            }
+          },
+          "outputVariable": "userApiResponse",
+          "continueOnError": false
+        },
+        {
+          "actionId": "extract-user-info",
+          "type": "SCRIPT",
+          "config": {
+            "expression": "userApiResponse"
+          },
+          "outputVariable": "userName",
+          "outputExpression": "result.name"
+        }
+      ],
+      "transitions": [
+        {
+          "condition": "!verified",
+          "targetRule": "verification-required",
+          "priority": 1
+        },
+        {
+          "condition": "verified",
+          "targetRule": "calculate-totals",
+          "priority": 2
+        }
+      ]
+    },
+    {
+      "ruleId": "calculate-totals",
+      "description": "Calculate order totals",
+      "actions": [
+        {
+          "actionId": "calculate-subtotal",
+          "type": "SCRIPT",
+          "config": {
+            "expression": "total = 0; for (item : items) { total = total + (item.price * item.quantity); } return total;"
+          },
+          "outputVariable": "subtotal"
+        },
+        {
+          "actionId": "calculate-tax",
+          "type": "SCRIPT",
+          "config": {
+            "expression": "util.roundTo(subtotal * 0.1, 2)"
+          },
+          "outputVariable": "tax"
+        },
+        {
+          "actionId": "calculate-total",
+          "type": "SCRIPT",
+          "config": {
+            "expression": "util.roundTo(subtotal + tax, 2)"
+          },
+          "outputVariable": "total"
+        },
+        {
+          "actionId": "generate-order-id",
+          "type": "SCRIPT",
+          "config": {
+            "expression": "'ORD-' + userId + '-' + util.uuid().substring(0, 8).toUpperCase()"
+          },
+          "outputVariable": "orderId"
+        }
+      ],
+      "transitions": [
+        {
+          "condition": "total > 1000",
+          "targetRule": "high-value-order",
+          "priority": 1
+        },
+        {
+          "condition": "total <= 1000",
+          "targetRule": "standard-order",
+          "priority": 2
+        }
+      ]
+    },
+    {
+      "ruleId": "high-value-order",
+      "description": "High value order processing",
+      "terminal": true,
+      "actions": [
+        {
+          "actionId": "set-status",
+          "type": "SCRIPT",
+          "config": {
+            "expression": "'APPROVED_HIGH_VALUE'"
+          },
+          "outputVariable": "status"
+        },
+        {
+          "actionId": "set-message",
+          "type": "SCRIPT",
+          "config": {
+            "expression": "'Thank you ' + userName + '! Your high-value order ' + orderId + ' will be processed with priority.'"
+          },
+          "outputVariable": "confirmationMessage"
+        }
+      ]
+    },
+    {
+      "ruleId": "standard-order",
+      "description": "Standard order processing",
+      "terminal": true,
+      "actions": [
+        {
+          "actionId": "set-status",
+          "type": "SCRIPT",
+          "config": {
+            "expression": "'APPROVED'"
+          },
+          "outputVariable": "status"
+        },
+        {
+          "actionId": "set-message",
+          "type": "SCRIPT",
+          "config": {
+            "expression": "'Thank you ' + userName + '! Your order ' + orderId + ' has been confirmed.'"
+          },
+          "outputVariable": "confirmationMessage"
+        }
+      ]
+    },
+    {
+      "ruleId": "verification-required",
+      "description": "User verification needed",
+      "terminal": true,
+      "actions": [
+        {
+          "actionId": "set-status",
+          "type": "SCRIPT",
+          "config": {
+            "expression": "'VERIFICATION_REQUIRED'"
+          },
+          "outputVariable": "status"
+        },
+        {
+          "actionId": "set-message",
+          "type": "SCRIPT",
+          "config": {
+            "expression": "'Please verify your account before placing orders.'"
+          },
+          "outputVariable": "confirmationMessage"
+        }
+      ]
+    }
+  ]
+}

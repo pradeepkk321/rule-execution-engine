@@ -8,6 +8,8 @@ import java.util.Map;
 /**
  * Represents an action definition from the rule configuration.
  * Maps to the JSON action structure.
+ *
+ * Enhanced action definition with conditional execution support.
  */
 public class ActionDefinition {
     
@@ -16,6 +18,9 @@ public class ActionDefinition {
     
     @JsonProperty("type")
     private String type;
+    
+    @JsonProperty("condition")
+    private String condition;
     
     @JsonProperty("config")
     private Map<String, Object> config = new HashMap<>();
@@ -31,8 +36,6 @@ public class ActionDefinition {
     
     @JsonProperty("onError")
     private ErrorHandlerDefinition onError;
-    
-    // Constructors
     
     public ActionDefinition() {
     }
@@ -53,6 +56,18 @@ public class ActionDefinition {
     
     public void setType(String type) {
         this.type = type;
+    }
+    
+    public String getCondition() {
+        return condition;
+    }
+    
+    public void setCondition(String condition) {
+        this.condition = condition;
+    }
+    
+    public boolean hasCondition() {
+        return condition != null && !condition.trim().isEmpty();
     }
     
     public Map<String, Object> getConfig() {
@@ -107,11 +122,6 @@ public class ActionDefinition {
         return onError != null && onError.getTargetRule() != null;
     }
     
-    // Utility methods
-    
-    /**
-     * Get a config value with type casting.
-     */
     @SuppressWarnings("unchecked")
     public <T> T getConfigValue(String key, Class<T> type) {
         Object value = config.get(key);
@@ -121,9 +131,6 @@ public class ActionDefinition {
         return (T) value;
     }
     
-    /**
-     * Get a config value with default.
-     */
     @SuppressWarnings("unchecked")
     public <T> T getConfigValue(String key, Class<T> type, T defaultValue) {
         Object value = config.get(key);
@@ -138,15 +145,13 @@ public class ActionDefinition {
         return "ActionDefinition{" +
                 "actionId='" + actionId + '\'' +
                 ", type='" + type + '\'' +
+                ", condition='" + condition + '\'' +
                 ", outputVariable='" + outputVariable + '\'' +
                 ", outputExpression='" + outputExpression + '\'' +
                 ", continueOnError=" + continueOnError +
                 '}';
     }
     
-    /**
-     * Nested class for error handler configuration.
-     */
     public static class ErrorHandlerDefinition {
         
         @JsonProperty("targetRule")

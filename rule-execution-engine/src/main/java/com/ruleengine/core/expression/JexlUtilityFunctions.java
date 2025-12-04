@@ -3,6 +3,8 @@ package com.ruleengine.core.expression;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -23,34 +25,18 @@ public class JexlUtilityFunctions {
     // Date/Time Functions
     // ====================
     
-    /**
-     * Get current timestamp as Instant.
-     * Usage: util.now()
-     */
     public Instant now() {
         return Instant.now();
     }
     
-    /**
-     * Get current date.
-     * Usage: util.today()
-     */
     public LocalDate today() {
         return LocalDate.now();
     }
     
-    /**
-     * Get current date-time.
-     * Usage: util.currentDateTime()
-     */
     public LocalDateTime currentDateTime() {
         return LocalDateTime.now();
     }
     
-    /**
-     * Format a date/time object.
-     * Usage: util.formatDate(dateObject, 'yyyy-MM-dd')
-     */
     public String formatDate(Object dateTime, String pattern) {
         if (dateTime == null) {
             return null;
@@ -69,22 +55,132 @@ public class JexlUtilityFunctions {
         return dateTime.toString();
     }
     
-    /**
-     * Get current timestamp in milliseconds.
-     * Usage: util.currentTimeMillis()
-     */
     public long currentTimeMillis() {
         return System.currentTimeMillis();
+    }
+    
+    // ====================
+    // Math Functions
+    // ====================
+    
+    /**
+     * Round a number to specified decimal places.
+     * Usage: util.roundTo(123.456, 2) => 123.46
+     */
+    public double roundTo(double value, int decimals) {
+        if (decimals < 0) {
+            throw new IllegalArgumentException("Decimals cannot be negative");
+        }
+        
+        BigDecimal bd = BigDecimal.valueOf(value);
+        bd = bd.setScale(decimals, RoundingMode.HALF_UP);
+        return bd.doubleValue();
+    }
+    
+    public double abs(double value) {
+        return Math.abs(value);
+    }
+    
+    public long round(double value) {
+        return Math.round(value);
+    }
+    
+    public double ceil(double value) {
+        return Math.ceil(value);
+    }
+    
+    public double floor(double value) {
+        return Math.floor(value);
+    }
+    
+    public double max(double a, double b) {
+        return Math.max(a, b);
+    }
+    
+    public double min(double a, double b) {
+        return Math.min(a, b);
+    }
+    
+    public double pow(double base, double exponent) {
+        return Math.pow(base, exponent);
+    }
+    
+    public double sqrt(double value) {
+        return Math.sqrt(value);
+    }
+    
+    // ====================
+    // Collection Math Functions
+    // ====================
+    
+    /**
+     * Sum items in a cart/list. Each item should have 'price' and 'quantity' fields.
+     * Usage: util.sumItems(cartItems)
+     */
+    public double sumItems(List<Map<String, Object>> items) {
+        if (items == null || items.isEmpty()) {
+            return 0.0;
+        }
+        
+        double total = 0.0;
+        for (Map<String, Object> item : items) {
+            Object price = item.get("price");
+            Object quantity = item.get("quantity");
+            
+            if (price != null && quantity != null) {
+                double priceValue = toDouble(price);
+                double quantityValue = toDouble(quantity);
+                total += priceValue * quantityValue;
+            }
+        }
+        
+        return total;
+    }
+    
+    /**
+     * Sum a specific field from a list of objects.
+     * Usage: util.sumField(items, 'total')
+     */
+    public double sumField(List<Map<String, Object>> items, String field) {
+        if (items == null || items.isEmpty() || field == null) {
+            return 0.0;
+        }
+        
+        double sum = 0.0;
+        for (Map<String, Object> item : items) {
+            Object value = item.get(field);
+            if (value != null) {
+                sum += toDouble(value);
+            }
+        }
+        
+        return sum;
+    }
+    
+    /**
+     * Calculate average of a field.
+     * Usage: util.avgField(items, 'rating')
+     */
+    public double avgField(List<Map<String, Object>> items, String field) {
+        if (items == null || items.isEmpty()) {
+            return 0.0;
+        }
+        
+        return sumField(items, field) / items.size();
+    }
+    
+    /**
+     * Count items that match a condition.
+     * Usage: util.countIf(items, item -> item.price > 100)
+     */
+    public int countItems(List<?> items) {
+        return items != null ? items.size() : 0;
     }
     
     // ====================
     // JSON Functions
     // ====================
     
-    /**
-     * Convert object to JSON string.
-     * Usage: util.toJson(object)
-     */
     public String toJson(Object obj) {
         if (obj == null) {
             return "null";
@@ -97,10 +193,6 @@ public class JexlUtilityFunctions {
         }
     }
     
-    /**
-     * Convert object to pretty-printed JSON string.
-     * Usage: util:toPrettyJson(object)
-     */
     public String toPrettyJson(Object obj) {
         if (obj == null) {
             return "null";
@@ -113,10 +205,6 @@ public class JexlUtilityFunctions {
         }
     }
     
-    /**
-     * Parse JSON string to object.
-     * Usage: util:fromJson(jsonString)
-     */
     public Object fromJson(String json) {
         if (json == null || json.trim().isEmpty()) {
             return null;
@@ -133,118 +221,72 @@ public class JexlUtilityFunctions {
     // String Functions
     // ====================
     
-    /**
-     * Check if string is empty or null.
-     * Usage: util:isEmpty(str)
-     */
     public boolean isEmpty(String str) {
         return str == null || str.isEmpty();
     }
     
-    /**
-     * Check if string is not empty.
-     * Usage: util:isNotEmpty(str)
-     */
     public boolean isNotEmpty(String str) {
         return str != null && !str.isEmpty();
     }
     
-    /**
-     * Check if string is blank (empty or only whitespace).
-     * Usage: util:isBlank(str)
-     */
     public boolean isBlank(String str) {
         return str == null || str.trim().isEmpty();
     }
     
-    /**
-     * Convert string to lowercase.
-     * Usage: util:lower(str)
-     */
     public String lower(String str) {
         return str != null ? str.toLowerCase() : null;
     }
     
-    /**
-     * Convert string to uppercase.
-     * Usage: util:upper(str)
-     */
     public String upper(String str) {
         return str != null ? str.toUpperCase() : null;
     }
     
-    /**
-     * Trim whitespace from string.
-     * Usage: util:trim(str)
-     */
     public String trim(String str) {
         return str != null ? str.trim() : null;
     }
     
-    /**
-     * Check if string contains substring.
-     * Usage: util:contains(str, substring)
-     */
     public boolean contains(String str, String substring) {
         return str != null && substring != null && str.contains(substring);
     }
     
-    /**
-     * Check if string starts with prefix.
-     * Usage: util:startsWith(str, prefix)
-     */
     public boolean startsWith(String str, String prefix) {
         return str != null && prefix != null && str.startsWith(prefix);
     }
     
-    /**
-     * Check if string ends with suffix.
-     * Usage: util:endsWith(str, suffix)
-     */
     public boolean endsWith(String str, String suffix) {
         return str != null && suffix != null && str.endsWith(suffix);
+    }
+    
+    public String substring(String str, int start, int end) {
+        if (str == null) return null;
+        return str.substring(start, end);
+    }
+    
+    public String replace(String str, String target, String replacement) {
+        if (str == null) return null;
+        return str.replace(target, replacement);
     }
     
     // ====================
     // Collection Functions
     // ====================
     
-    /**
-     * Check if collection is empty or null.
-     * Usage: util:isEmpty(collection)
-     */
     public boolean isEmpty(Collection<?> collection) {
         return collection == null || collection.isEmpty();
     }
     
-    /**
-     * Check if collection is not empty.
-     * Usage: util:isNotEmpty(collection)
-     */
     public boolean isNotEmpty(Collection<?> collection) {
         return collection != null && !collection.isEmpty();
     }
     
-    /**
-     * Get size of collection.
-     * Usage: util:size(collection)
-     */
     public int size(Collection<?> collection) {
         return collection != null ? collection.size() : 0;
     }
     
-    /**
-     * Check if collection contains element.
-     * Usage: util:contains(collection, element)
-     */
     public boolean contains(Collection<?> collection, Object element) {
         return collection != null && collection.contains(element);
     }
     
-    /**
-     * Get first element of collection.
-     * Usage: util:first(collection)
-     */
     public Object first(Collection<?> collection) {
         if (collection == null || collection.isEmpty()) {
             return null;
@@ -252,10 +294,6 @@ public class JexlUtilityFunctions {
         return collection.iterator().next();
     }
     
-    /**
-     * Get first element of list.
-     * Usage: util:first(list)
-     */
     public Object first(List<?> list) {
         if (list == null || list.isEmpty()) {
             return null;
@@ -263,10 +301,6 @@ public class JexlUtilityFunctions {
         return list.get(0);
     }
     
-    /**
-     * Get last element of list.
-     * Usage: util:last(list)
-     */
     public Object last(List<?> list) {
         if (list == null || list.isEmpty()) {
             return null;
@@ -275,109 +309,73 @@ public class JexlUtilityFunctions {
     }
     
     // ====================
-    // Math Functions
+    // Type Checking & Conversion
     // ====================
     
-    /**
-     * Get absolute value.
-     * Usage: util:abs(number)
-     */
-    public double abs(double value) {
-        return Math.abs(value);
-    }
-    
-    /**
-     * Round to nearest integer.
-     * Usage: util:round(number)
-     */
-    public long round(double value) {
-        return Math.round(value);
-    }
-    
-    /**
-     * Round up (ceiling).
-     * Usage: util:ceil(number)
-     */
-    public double ceil(double value) {
-        return Math.ceil(value);
-    }
-    
-    /**
-     * Round down (floor).
-     * Usage: util:floor(number)
-     */
-    public double floor(double value) {
-        return Math.floor(value);
-    }
-    
-    /**
-     * Get maximum of two numbers.
-     * Usage: util:max(a, b)
-     */
-    public double max(double a, double b) {
-        return Math.max(a, b);
-    }
-    
-    /**
-     * Get minimum of two numbers.
-     * Usage: util:min(a, b)
-     */
-    public double min(double a, double b) {
-        return Math.min(a, b);
-    }
-    
-    // ====================
-    // Type Checking Functions
-    // ====================
-    
-    /**
-     * Check if value is null.
-     * Usage: util:isNull(value)
-     */
     public boolean isNull(Object value) {
         return value == null;
     }
     
-    /**
-     * Check if value is not null.
-     * Usage: util:isNotNull(value)
-     */
     public boolean isNotNull(Object value) {
         return value != null;
     }
     
-    /**
-     * Get default value if value is null.
-     * Usage: util:defaultIfNull(value, defaultValue)
-     */
     public Object defaultIfNull(Object value, Object defaultValue) {
         return value != null ? value : defaultValue;
+    }
+    
+    /**
+     * Convert various number types to double.
+     */
+    public double toDouble(Object value) {
+        if (value == null) {
+            return 0.0;
+        }
+        if (value instanceof Number) {
+            return ((Number) value).doubleValue();
+        }
+        if (value instanceof String) {
+            try {
+                return Double.parseDouble((String) value);
+            } catch (NumberFormatException e) {
+                return 0.0;
+            }
+        }
+        return 0.0;
+    }
+    
+    /**
+     * Convert to integer.
+     */
+    public int toInt(Object value) {
+        if (value == null) {
+            return 0;
+        }
+        if (value instanceof Number) {
+            return ((Number) value).intValue();
+        }
+        if (value instanceof String) {
+            try {
+                return Integer.parseInt((String) value);
+            } catch (NumberFormatException e) {
+                return 0;
+            }
+        }
+        return 0;
     }
     
     // ====================
     // Utility Functions
     // ====================
     
-    /**
-     * Generate a random UUID.
-     * Usage: util:uuid()
-     */
     public String uuid() {
         return UUID.randomUUID().toString();
     }
     
-    /**
-     * Generate a random integer between min and max (inclusive).
-     * Usage: util:randomInt(min, max)
-     */
     public int randomInt(int min, int max) {
         return new Random().nextInt(max - min + 1) + min;
     }
     
-    /**
-     * Join collection elements into a string.
-     * Usage: util:join(collection, delimiter)
-     */
     public String join(Collection<?> collection, String delimiter) {
         if (collection == null) {
             return "";
@@ -387,14 +385,27 @@ public class JexlUtilityFunctions {
                 .collect(Collectors.joining(delimiter));
     }
     
-    /**
-     * Split string into list.
-     * Usage: util:split(str, delimiter)
-     */
     public List<String> split(String str, String delimiter) {
         if (str == null) {
             return Collections.emptyList();
         }
         return Arrays.asList(str.split(delimiter));
     }
+    
+    /**
+     * Coalesce - return first non-null value.
+     * Usage: util.coalesce(value1, value2, value3, defaultValue)
+     */
+    public Object coalesce(Object... values) {
+        if (values == null) {
+            return null;
+        }
+        for (Object value : values) {
+            if (value != null) {
+                return value;
+            }
+        }
+        return null;
+    }
 }
+

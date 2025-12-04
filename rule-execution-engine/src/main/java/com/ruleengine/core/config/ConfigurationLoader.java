@@ -318,3 +318,4 @@ public class ConfigurationLoader {
         public RuleEngineConfig ruleEngineConfig;
     }
 }
+

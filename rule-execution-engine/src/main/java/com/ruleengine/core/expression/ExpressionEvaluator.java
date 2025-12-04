@@ -59,3 +59,4 @@ public interface ExpressionEvaluator {
      */
     boolean isValid(String expression);
 }
+
